@@ -14,21 +14,35 @@ import {
 import "./studentCheckinSystem.css";
 import axios from "axios";
 
+// Constants - These placeholders will be replaced by server at runtime
+const config = {
+  API_BASE_URL: "REACT_APP_API_BASE_URL_PLACEHOLDER",
+  PINCODE_API_URL: "REACT_APP_PINCODE_API_URL_PLACEHOLDER", 
+  APP_NAME: "REACT_APP_APP_NAME_PLACEHOLDER",
+  PAGINATION: {
+    ITEMS_PER_PAGE: 5,
+  },
+  MESSAGE_TIMEOUT: 3000,
+};
+
 const StudentCheckinSystem = () => {
+  // State management
   const [students, setStudents] = useState([]);
   const [checkins, setCheckins] = useState([]);
+  const [todayCheckIns, setTodayCheckIns] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [pincodeLoading, setPincodeLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState("students");
 
-  // Pagination states
+  // Pagination state
   const [currentStudentPage, setCurrentStudentPage] = useState(1);
   const [currentCheckinPage, setCurrentCheckinPage] = useState(1);
-  const itemsPerPage = 5;
+  const itemsPerPage = config.PAGINATION.ITEMS_PER_PAGE;
 
-  // Form states
+  // Form state
   const [studentForm, setStudentForm] = useState({
     name: "",
     email: "",
@@ -38,31 +52,46 @@ const StudentCheckinSystem = () => {
     state: "",
     country: "",
   });
-  const [checkinForm, setCheckinForm] = useState({
-    studentId: "",
-  });
-  const [pincodeLoading, setPincodeLoading] = useState(false);
+  const [checkinForm, setCheckinForm] = useState({ studentId: "" });
 
-  // Load initial data
+  const API_BASE = config.API_BASE_URL;
+
+  // Initialize data
   useEffect(() => {
     fetchStudents();
     fetchCheckins();
   }, []);
 
-  const API_BASE = "https://student-checkin-system.onrender.com/api/v0";
-
+  // Utility functions
   const showMessage = (message, type = "success") => {
     if (type === "success") {
       setSuccess(message);
       setError("");
-      setTimeout(() => setSuccess(""), 3000);
+      setTimeout(() => setSuccess(""), config.MESSAGE_TIMEOUT);
     } else {
       setError(message);
       setSuccess("");
-      setTimeout(() => setError(""), 3000);
+      setTimeout(() => setError(""), config.MESSAGE_TIMEOUT);
     }
   };
 
+  const formatDate = (timestamp) => {
+    return new Date(timestamp).toLocaleString();
+  };
+
+  const resetStudentForm = () => {
+    setStudentForm({
+      name: "",
+      email: "",
+      studentId: "",
+      pincode: "",
+      district: "",
+      state: "",
+      country: "",
+    });
+  };
+
+  // API functions
   const fetchStudents = async () => {
     setLoading(true);
     try {
@@ -83,11 +112,17 @@ const StudentCheckinSystem = () => {
       const response = await axios.get(`${API_BASE}/checkins`);
       if (response.status === 200) {
         setCheckins(response.data.checkInStudents);
+        
+        const todayString = new Date().toISOString().split("T")[0];
+        const todayAllCheckIn = response.data.checkInStudents.filter((entry) =>
+          entry.timestamp.startsWith(todayString)
+        );
+        setTodayCheckIns(todayAllCheckIn);
       } else {
         throw new Error("Failed to fetch check-ins");
       }
     } catch (err) {
-      showMessage(err.response.data.message, "error");
+      showMessage(err.response?.data?.message || err.message, "error");
     }
   };
 
@@ -97,7 +132,7 @@ const StudentCheckinSystem = () => {
     setPincodeLoading(true);
     try {
       const response = await axios.get(
-        `https://api.postalpincode.in/pincode/${pincode}`
+        `${config.PINCODE_API_URL}/${pincode}`
       );
       const data = response.data;
 
@@ -118,39 +153,26 @@ const StudentCheckinSystem = () => {
     setPincodeLoading(false);
   };
 
+  // Form handlers
   const handleStudentSubmit = async () => {
-    if (
-      !studentForm.name ||
-      !studentForm.email ||
-      !studentForm.studentId ||
-      !studentForm.pincode ||
-      !studentForm.district ||
-      !studentForm.state ||
-      !studentForm.country
-    ) {
+    const requiredFields = ['name', 'email', 'studentId', 'pincode', 'district', 'state', 'country'];
+    const isFormValid = requiredFields.every(field => studentForm[field]);
+
+    if (!isFormValid) {
       showMessage("Please fill in all required fields", "error");
       return;
     }
 
     setLoading(true);
-
     try {
       const response = await axios.post(`${API_BASE}/students`, studentForm);
       if (response.status === 201) {
         showMessage("Student added successfully!");
-        setStudentForm({
-          name: "",
-          email: "",
-          studentId: "",
-          pincode: "",
-          district: "",
-          state: "",
-          country: "",
-        });
+        resetStudentForm();
         fetchStudents();
       }
     } catch (err) {
-      showMessage(err.response.data.message, "error");
+      showMessage(err.response?.data?.message || err.message, "error");
     }
     setLoading(false);
   };
@@ -162,7 +184,6 @@ const StudentCheckinSystem = () => {
     }
 
     setLoading(true);
-
     try {
       const response = await axios.post(`${API_BASE}/checkins`, {
         student_id: checkinForm.studentId,
@@ -175,26 +196,36 @@ const StudentCheckinSystem = () => {
         fetchCheckins();
       }
     } catch (err) {
-      if (err.response) {
-        showMessage(err.response.data.message, "error");
-      } else if (err.request) {
-        showMessage("Error: No response from server.", "error");
-      } else {
-        showMessage("Error recording check-in: " + err.message, "error");
-      }
+      const errorMessage = err.response?.data?.message || 
+                          (err.request ? "Error: No response from server." : `Error recording check-in: ${err.message}`);
+      showMessage(errorMessage, "error");
     }
     setLoading(false);
   };
+
+  const handlePincodeChange = (e) => {
+    const pincode = e.target.value;
+    setStudentForm({ ...studentForm, pincode });
+    if (pincode.length === 6) {
+      fetchLocationByPincode(pincode);
+    }
+  };
+
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+    setCurrentStudentPage(1); // Reset to first page when searching
+  };
+
+  // Data processing
   const filteredStudents = students.filter(
     (student) =>
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
   const totalStudentPages = Math.ceil(filteredStudents.length / itemsPerPage);
-  const totalCheckinPages = Math.ceil(
-    (Array.isArray(checkins) ? checkins.length : 0) / itemsPerPage
-  );
+  const totalCheckinPages = Math.ceil((Array.isArray(checkins) ? checkins.length : 0) / itemsPerPage);
 
   const paginatedStudents = filteredStudents.slice(
     (currentStudentPage - 1) * itemsPerPage,
@@ -211,18 +242,7 @@ const StudentCheckinSystem = () => {
         )
     : [];
 
-  const handleStudentPageChange = (page) => {
-    setCurrentStudentPage(page);
-  };
-
-  const handleCheckinPageChange = (page) => {
-    setCurrentCheckinPage(page);
-  };
-
-  const formatDate = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
-  };
-
+  // Pagination component
   const Pagination = ({ currentPage, totalPages, onPageChange, type }) => {
     const getPageNumbers = () => {
       const pages = [];
@@ -250,6 +270,10 @@ const StudentCheckinSystem = () => {
 
     if (totalPages <= 1) return null;
 
+    const totalItems = type === "students" ? filteredStudents.length : (Array.isArray(checkins) ? checkins.length : 0);
+    const startItem = Math.min((currentPage - 1) * itemsPerPage + 1, totalItems);
+    const endItem = Math.min(currentPage * itemsPerPage, totalItems);
+
     return (
       <div className="pagination-container">
         <div className="pagination">
@@ -273,9 +297,7 @@ const StudentCheckinSystem = () => {
                   1
                 </button>
                 {currentPage > 4 && (
-                  <span key="start-dots" className="pagination-dots">
-                    ...
-                  </span>
+                  <span key="start-dots" className="pagination-dots">...</span>
                 )}
               </>
             )}
@@ -284,9 +306,7 @@ const StudentCheckinSystem = () => {
               <button
                 key={`page-${page}`}
                 onClick={() => onPageChange(page)}
-                className={`pagination-page ${
-                  currentPage === page ? "active" : ""
-                }`}
+                className={`pagination-page ${currentPage === page ? "active" : ""}`}
               >
                 {page}
               </button>
@@ -295,9 +315,7 @@ const StudentCheckinSystem = () => {
             {currentPage < totalPages - 2 && (
               <>
                 {currentPage < totalPages - 3 && (
-                  <span key="end-dots" className="pagination-dots">
-                    ...
-                  </span>
+                  <span key="end-dots" className="pagination-dots">...</span>
                 )}
                 <button
                   key="last-page"
@@ -321,31 +339,7 @@ const StudentCheckinSystem = () => {
         </div>
 
         <div className="pagination-info">
-          Showing{" "}
-          {Math.min(
-            (currentPage - 1) * itemsPerPage + 1,
-            type === "students"
-              ? filteredStudents.length
-              : Array.isArray(checkins)
-              ? checkins.length
-              : 0
-          )}{" "}
-          to{" "}
-          {Math.min(
-            currentPage * itemsPerPage,
-            type === "students"
-              ? filteredStudents.length
-              : Array.isArray(checkins)
-              ? checkins.length
-              : 0
-          )}{" "}
-          of{" "}
-          {type === "students"
-            ? filteredStudents.length
-            : Array.isArray(checkins)
-            ? checkins.length
-            : 0}{" "}
-          entries
+          Showing {startItem} to {endItem} of {totalItems} entries
         </div>
       </div>
     );
@@ -353,6 +347,7 @@ const StudentCheckinSystem = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Header */}
       <header className="header">
         <div className="header-container">
           <div className="header-content">
@@ -360,7 +355,7 @@ const StudentCheckinSystem = () => {
               <div className="header-icon">
                 <Users className="icon-lg text-white" />
               </div>
-              <h1>Student Check-in System</h1>
+              <h1>{config.APP_NAME}</h1>
             </div>
             <div className="header-stats">
               <div className="stat-item">
@@ -369,7 +364,11 @@ const StudentCheckinSystem = () => {
               </div>
               <div className="stat-item">
                 <Clock className="icon" />
-                <span>{checkins.length} Check-ins Today</span>
+                <span>{checkins.length} Check-ins</span>
+              </div>
+              <div className="stat-item">
+                <Clock className="icon" />
+                <span>{todayCheckIns.length} Check-ins Today</span>
               </div>
             </div>
           </div>
@@ -400,9 +399,7 @@ const StudentCheckinSystem = () => {
           <nav className="tab-nav">
             <button
               onClick={() => setActiveTab("students")}
-              className={`tab-button ${
-                activeTab === "students" ? "active" : ""
-              }`}
+              className={`tab-button ${activeTab === "students" ? "active" : ""}`}
             >
               <div className="tab-content">
                 <Users className="icon" />
@@ -411,9 +408,7 @@ const StudentCheckinSystem = () => {
             </button>
             <button
               onClick={() => setActiveTab("checkins")}
-              className={`tab-button ${
-                activeTab === "checkins" ? "active" : ""
-              }`}
+              className={`tab-button ${activeTab === "checkins" ? "active" : ""}`}
             >
               <div className="tab-content">
                 <Clock className="icon" />
@@ -423,6 +418,7 @@ const StudentCheckinSystem = () => {
           </nav>
         </div>
 
+        {/* Students Tab */}
         {activeTab === "students" && (
           <>
             {/* Add Student Form */}
@@ -439,9 +435,7 @@ const StudentCheckinSystem = () => {
                     <input
                       type="text"
                       value={studentForm.name}
-                      onChange={(e) =>
-                        setStudentForm({ ...studentForm, name: e.target.value })
-                      }
+                      onChange={(e) => setStudentForm({ ...studentForm, name: e.target.value })}
                       className="form-input"
                     />
                   </div>
@@ -451,12 +445,7 @@ const StudentCheckinSystem = () => {
                     <input
                       type="email"
                       value={studentForm.email}
-                      onChange={(e) =>
-                        setStudentForm({
-                          ...studentForm,
-                          email: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setStudentForm({ ...studentForm, email: e.target.value })}
                       className="form-input"
                     />
                   </div>
@@ -466,12 +455,7 @@ const StudentCheckinSystem = () => {
                     <input
                       type="text"
                       value={studentForm.studentId}
-                      onChange={(e) =>
-                        setStudentForm({
-                          ...studentForm,
-                          studentId: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setStudentForm({ ...studentForm, studentId: e.target.value })}
                       className="form-input"
                     />
                   </div>
@@ -482,13 +466,7 @@ const StudentCheckinSystem = () => {
                       <input
                         type="text"
                         value={studentForm.pincode}
-                        onChange={(e) => {
-                          const pincode = e.target.value;
-                          setStudentForm({ ...studentForm, pincode });
-                          if (pincode.length === 6) {
-                            fetchLocationByPincode(pincode);
-                          }
-                        }}
+                        onChange={handlePincodeChange}
                         maxLength="6"
                         className="form-input"
                         placeholder="Enter 6-digit pincode"
@@ -506,12 +484,7 @@ const StudentCheckinSystem = () => {
                     <input
                       type="text"
                       value={studentForm.district}
-                      onChange={(e) =>
-                        setStudentForm({
-                          ...studentForm,
-                          district: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setStudentForm({ ...studentForm, district: e.target.value })}
                       className="form-input"
                     />
                   </div>
@@ -521,12 +494,7 @@ const StudentCheckinSystem = () => {
                     <input
                       type="text"
                       value={studentForm.state}
-                      onChange={(e) =>
-                        setStudentForm({
-                          ...studentForm,
-                          state: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setStudentForm({ ...studentForm, state: e.target.value })}
                       className="form-input"
                     />
                   </div>
@@ -536,12 +504,7 @@ const StudentCheckinSystem = () => {
                     <input
                       type="text"
                       value={studentForm.country}
-                      onChange={(e) =>
-                        setStudentForm({
-                          ...studentForm,
-                          country: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setStudentForm({ ...studentForm, country: e.target.value })}
                       className="form-input"
                     />
                   </div>
@@ -571,7 +534,7 @@ const StudentCheckinSystem = () => {
                       type="text"
                       placeholder="Search students..."
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={handleSearchChange}
                       className="form-input input-with-icon"
                     />
                   </div>
@@ -592,24 +555,17 @@ const StudentCheckinSystem = () => {
                       <tr key={student.student_id}>
                         <td>
                           <div>
-                            <div className="table-cell-main">
-                              {student.name}
-                            </div>
-                            <div className="table-cell-sub">
-                              {student.email}
-                            </div>
+                            <div className="table-cell-main">{student.name}</div>
+                            <div className="table-cell-sub">{student.email}</div>
                           </div>
                         </td>
-                        <td className="table-cell-main">
-                          {student.student_id}
-                        </td>
+                        <td className="table-cell-main">{student.student_id}</td>
                         <td className="table-cell-secondary">
                           {student.district && student.state ? (
                             <div className="table-cell-location">
                               <MapPin className="icon-sm" />
                               <span>
-                                {student.district}, {student.state},
-                                {student.country}
+                                {student.district}, {student.state}, {student.country}
                               </span>
                             </div>
                           ) : (
@@ -623,9 +579,7 @@ const StudentCheckinSystem = () => {
 
                 {filteredStudents.length === 0 && (
                   <div className="table-empty">
-                    {searchTerm
-                      ? "No students found matching your search."
-                      : "No students registered yet."}
+                    {searchTerm ? "No students found matching your search." : "No students registered yet."}
                   </div>
                 )}
               </div>
@@ -633,13 +587,14 @@ const StudentCheckinSystem = () => {
               <Pagination
                 currentPage={currentStudentPage}
                 totalPages={totalStudentPages}
-                onPageChange={handleStudentPageChange}
+                onPageChange={setCurrentStudentPage}
                 type="students"
               />
             </div>
           </>
         )}
 
+        {/* Check-ins Tab */}
         {activeTab === "checkins" && (
           <>
             {/* Check-in Form */}
@@ -653,12 +608,7 @@ const StudentCheckinSystem = () => {
                 <input
                   type="text"
                   value={checkinForm.studentId}
-                  onChange={(e) =>
-                    setCheckinForm({
-                      ...checkinForm,
-                      studentId: e.target.value,
-                    })
-                  }
+                  onChange={(e) => setCheckinForm({ ...checkinForm, studentId: e.target.value })}
                   placeholder="Enter Student ID"
                   className="form-input"
                 />
@@ -690,19 +640,11 @@ const StudentCheckinSystem = () => {
                     {paginatedCheckins.map((checkin, index) => (
                       <tr key={`checkin-${currentCheckinPage}-${index}`}>
                         <td>
-                          <div className="table-cell-main">
-                            {checkin.student.name}
-                          </div>
-                          <div className="table-cell-sub">
-                            {checkin.student.email}
-                          </div>
+                          <div className="table-cell-main">{checkin.student.name}</div>
+                          <div className="table-cell-sub">{checkin.student.email}</div>
                         </td>
-                        <td className="table-cell-main">
-                          {checkin.student.student_id}
-                        </td>
-                        <td className="table-cell-secondary">
-                          {formatDate(checkin.timestamp)}
-                        </td>
+                        <td className="table-cell-main">{checkin.student.student_id}</td>
+                        <td className="table-cell-secondary">{formatDate(checkin.timestamp)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -716,7 +658,7 @@ const StudentCheckinSystem = () => {
               <Pagination
                 currentPage={currentCheckinPage}
                 totalPages={totalCheckinPages}
-                onPageChange={handleCheckinPageChange}
+                onPageChange={setCurrentCheckinPage}
                 type="checkins"
               />
             </div>

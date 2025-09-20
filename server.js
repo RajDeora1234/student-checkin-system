@@ -4,6 +4,7 @@ import cors from "cors";
 import { routes } from "./routes/index.js";
 import errorMiddleware from "./middleware/error.js";
 import path from "path";
+import { injectEnvVariables } from "./inject-env.js";
 
 const app = express();
 const PORT = process.env.PORT;
@@ -22,6 +23,8 @@ mongoose
   .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use("/api", routes);
+
+injectEnvVariables();
 
 const __dirname = path.resolve();
 app.use(express.static(path.join(__dirname, "./frontend/dist")));
