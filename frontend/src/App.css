@@ -1,0 +1,225 @@
+/* Updated Card and Table Styles for Fixed Height */
+.card {
+  background-color: #ffffff;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.students-table-card {
+  height: 60vh; /* Fixed height - 60% of viewport height */
+  min-height: 400px; /* Minimum height */
+  max-height: 600px; /* Maximum height */
+}
+
+.table-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Table Container with Fixed Height */
+.table-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+}
+
+.table-container::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.table-container::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.table-container::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.table-container::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Compact Pagination Styles */
+.pagination-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-top: 1px solid #e5e7eb;
+  background-color: #f8fafc;
+  border-radius: 0 0 0.5rem 0.5rem;
+  flex-shrink: 0;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  color: #374151;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.pagination-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.pagination-btn:disabled {
+  background-color: #f9fafb;
+  color: #9ca3af;
+  cursor: not-allowed;
+  border-color: #e5e7eb;
+  opacity: 0.6;
+}
+
+.pagination-icon {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+}
+
+.pagination-pages {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 4px;
+}
+
+.pagination-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 4px;
+  border: 1px solid #d1d5db;
+  background-color: #ffffff;
+  color: #374151;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.pagination-page:hover {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+  color: #111827;
+}
+
+.pagination-page.active {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.pagination-page.active:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.pagination-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #9ca3af;
+  font-size: 12px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.pagination-info {
+  color: #6b7280;
+  font-size: 11px;
+  text-align: right;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+/* Responsive Design for Compact Pagination */
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .pagination-info {
+    text-align: center;
+    order: -1;
+  }
+
+  .students-table-card {
+    height: 50vh;
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .pagination-btn span {
+    display: none;
+  }
+
+  .pagination-page {
+    min-width: 24px;
+    height: 24px;
+    font-size: 11px;
+  }
+
+  .pagination-dots {
+    width: 24px;
+    height: 24px;
+  }
+
+  .pagination-info {
+    font-size: 10px;
+  }
+
+  .students-table-card {
+    height: 45vh;
+    min-height: 250px;
+  }
+}
+
+/* Focus styles for accessibility */
+.pagination-btn:focus-visible,
+.pagination-page:focus-visible {
+  outline: 2px solid #3b82f6;
+  outline-offset: 1px;
+}
