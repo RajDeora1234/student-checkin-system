@@ -49,7 +49,7 @@ const StudentCheckinSystem = () => {
     fetchCheckins();
   }, []);
 
-  const API_BASE = "https://student-checkin-system.onrender.com/api/v0";
+  const API_BASE = "http://localhost:10000/api/v0";
 
   const showMessage = (message, type = "success") => {
     if (type === "success") {
